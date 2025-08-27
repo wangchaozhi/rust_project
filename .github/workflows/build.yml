@@ -132,11 +132,14 @@ jobs:
         cat > AppDir/usr/share/applications/household_management.desktop << EOF
         [Desktop Entry]
         Type=Application
-        Name=户籍管理系统
+        Name=Household Management System
+        Name[zh_CN]=户籍管理系统
         Comment=Household Management System
+        Comment[zh_CN]=户籍管理系统
         Exec=household_management
         Icon=household_management
-        Categories=Office;
+        Categories=Office;Database;
+        Terminal=false
         EOF
         
         # Create a simple icon (you can replace this with your own icon)
@@ -151,8 +154,8 @@ jobs:
         # Build AppImage
         ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
         
-        # Rename the output
-        mv *.AppImage household_management-linux-x86_64.AppImage
+        # Find and rename the generated AppImage
+        find . -name "*.AppImage" -exec mv {} household_management-linux-x86_64.AppImage \;
     
     - name: Upload AppImage
       uses: actions/upload-artifact@v4
