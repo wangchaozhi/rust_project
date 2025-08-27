@@ -1,0 +1,17 @@
+[package]
+name = "household_management"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eframe = "0.27"
+egui = "0.27"
+egui_extras = "0.27"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+[features]
+default = ["persistence"]
+persistence = ["eframe/persistence", "egui/persistence"]
