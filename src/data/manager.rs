@@ -1,19 +1,26 @@
 use super::models::*;
+use super::database::Database;
 use chrono::NaiveDate;
 use uuid::Uuid;
+use std::collections::HashMap;
 
 pub struct HouseholdManager {
-    households: Vec<Household>,
+    database: Database,
+    households_cache: HashMap<Uuid, Household>,
+    cache_dirty: bool,
 }
 
 impl HouseholdManager {
-    pub fn new() -> Self {
-        Self {
-            households: Vec::new(),
-        }
+    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        let database = Database::new("household_management.db")?;
+        Ok(Self {
+            database,
+            households_cache: HashMap::new(),
+            cache_dirty: true,
+        })
     }
     
-    pub fn add_sample_data(&mut self) {
+    pub fn add_sample_data(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let sample1 = Household {
             id: Uuid::new_v4(),
             head_name: "张三".to_string(),
@@ -21,7 +28,10 @@ impl HouseholdManager {
             address: "北京市朝阳区XXX街道XXX号".to_string(),
             phone: "13800138000".to_string(),
             household_type: HouseholdType::Urban,
-            registration_date: chrono::Utc::now().naive_utc(),
+            registration_date: chrono::NaiveDateTime::new(
+                chrono::NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+                chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap()
+            ),
             members: vec![
                 Member {
                     name: "张三".to_string(),
@@ -51,7 +61,10 @@ impl HouseholdManager {
             address: "北京市海淀区YYY街道YYY号".to_string(),
             phone: "13900139000".to_string(),
             household_type: HouseholdType::Rural,
-            registration_date: chrono::Utc::now().naive_utc(),
+            registration_date: chrono::NaiveDateTime::new(
+                chrono::NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+                chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap()
+            ),
             members: vec![
                 Member {
                     name: "王五".to_string(),
@@ -65,73 +78,98 @@ impl HouseholdManager {
             ],
         };
         
-        self.households.push(sample1);
-        self.households.push(sample2);
+        self.database.insert_household(&sample1)?;
+        self.database.insert_household(&sample2)?;
+        self.cache_dirty = true;
+        Ok(())
     }
     
-    pub fn get_households(&self) -> &Vec<Household> {
-        &self.households
-    }
-    
-    pub fn get_household(&self, index: usize) -> Option<&Household> {
-        self.households.get(index)
-    }
-    
-    pub fn add_household(&mut self, household: Household) {
-        self.households.push(household);
-    }
-    
-    pub fn update_household(&mut self, index: usize, household: Household) {
-        if index < self.households.len() {
-            self.households[index] = household;
-        }
-    }
-    
-    pub fn remove_household(&mut self, index: usize) {
-        if index < self.households.len() {
-            self.households.remove(index);
-        }
-    }
-    
-    pub fn search(&self, query: &str) -> Vec<usize> {
-        if query.is_empty() {
-            (0..self.households.len()).collect()
+    fn refresh_cache(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if self.cache_dirty {
+            println!("缓存脏标记为true，正在刷新缓存");
+            match self.database.get_all_households() {
+                Ok(households) => {
+                    println!("从数据库获取到 {} 个户籍", households.len());
+                    self.households_cache.clear();
+                    for household in households {
+                        println!("添加户籍到缓存: {}", household.head_name);
+                        self.households_cache.insert(household.id, household);
+                    }
+                    self.cache_dirty = false;
+                    println!("缓存刷新完成，现在有 {} 个户籍", self.households_cache.len());
+                }
+                Err(e) => {
+                    println!("从数据库获取户籍时出错: {}", e);
+                    // 如果数据库为空或出错，清空缓存
+                    self.households_cache.clear();
+                    self.cache_dirty = false;
+                    // 不返回错误，允许继续运行
+                }
+            }
         } else {
-            self.households
-                .iter()
-                .enumerate()
-                .filter(|(_, household)| {
-                    household.head_name.contains(query) ||
-                    household.id_number.contains(query) ||
-                    household.address.contains(query) ||
-                    household.phone.contains(query)
-                })
-                .map(|(i, _)| i)
-                .collect()
+            println!("缓存没有脏标记，跳过刷新");
+        }
+        Ok(())
+    }
+    
+    pub fn get_households(&mut self) -> Result<Vec<Household>, Box<dyn std::error::Error>> {
+        self.refresh_cache()?;
+        Ok(self.households_cache.values().cloned().collect())
+    }
+    
+    pub fn get_household(&mut self, index: usize) -> Result<Option<Household>, Box<dyn std::error::Error>> {
+        self.refresh_cache()?;
+        let households: Vec<_> = self.households_cache.values().cloned().collect();
+        Ok(households.get(index).cloned())
+    }
+    
+    pub fn add_household(&mut self, household: Household) -> Result<(), Box<dyn std::error::Error>> {
+        println!("正在添加户籍到数据库: {}", household.head_name);
+        self.database.insert_household(&household)?;
+        self.cache_dirty = true;
+        println!("户籍已添加到数据库，缓存标记为脏");
+        Ok(())
+    }
+    
+    pub fn update_household(&mut self, household: Household) -> Result<(), Box<dyn std::error::Error>> {
+        self.database.update_household(&household)?;
+        self.cache_dirty = true;
+        Ok(())
+    }
+    
+    pub fn remove_household(&mut self, household_id: &Uuid) -> Result<(), Box<dyn std::error::Error>> {
+        self.database.delete_household(household_id)?;
+        self.cache_dirty = true;
+        Ok(())
+    }
+    
+    pub fn search(&mut self, query: &str) -> Result<Vec<usize>, Box<dyn std::error::Error>> {
+        if query.is_empty() {
+            self.refresh_cache()?;
+            let count = self.households_cache.len();
+            println!("搜索查询为空，缓存中有 {} 个户籍", count);
+            Ok((0..count).collect())
+        } else {
+            let households = self.database.search_households(query)?;
+            let all_households = self.get_households()?;
+            
+            let mut indices = Vec::new();
+            for (i, household) in all_households.iter().enumerate() {
+                if households.iter().any(|h| h.id == household.id) {
+                    indices.push(i);
+                }
+            }
+            Ok(indices)
         }
     }
     
-    pub fn count(&self) -> usize {
-        self.households.len()
+    pub fn count(&mut self) -> Result<usize, Box<dyn std::error::Error>> {
+        self.refresh_cache()?;
+        Ok(self.households_cache.len())
     }
     
-    pub fn get_statistics(&self) -> HouseholdStatistics {
-        let total = self.households.len();
-        let urban_count = self.households.iter()
-            .filter(|h| h.household_type == HouseholdType::Urban)
-            .count();
-        let rural_count = total - urban_count;
-        
-        let total_members = self.households.iter()
-            .map(|h| h.members.len())
-            .sum();
-        
-        HouseholdStatistics {
-            total_households: total,
-            urban_households: urban_count,
-            rural_households: rural_count,
-            total_members,
-        }
+    pub fn get_statistics(&mut self) -> Result<HouseholdStatistics, Box<dyn std::error::Error>> {
+        Ok(self.database.get_statistics()?)
     }
 }
 

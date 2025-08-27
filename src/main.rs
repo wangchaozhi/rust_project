@@ -11,7 +11,13 @@ fn main() -> Result<(), eframe::Error> {
             // 设置自定义字体
             config::setup_custom_fonts(&cc.egui_ctx);
             
-            Box::new(HouseholdApp::new(cc))
+            match HouseholdApp::new(cc) {
+                Ok(app) => Ok(Box::new(app)),
+                Err(e) => {
+                    eprintln!("Failed to initialize app: {}", e);
+                    std::process::exit(1);
+                }
+            }
         }),
     )
 }

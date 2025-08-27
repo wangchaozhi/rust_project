@@ -16,8 +16,8 @@ impl HouseholdApp {
             
             if ui.button(RichText::new("编辑户籍").size(14.0)).clicked() {
                 if let Some(selected) = self.ui_state.selected_household {
-                    if let Some(household) = self.get_household(selected) {
-                        self.ui_state.edit_form = HouseholdForm::from_household(household);
+                    if let Ok(Some(household)) = self.get_household(selected) {
+                        self.ui_state.edit_form = HouseholdForm::from_household(&household);
                         self.ui_state.show_edit_dialog = true;
                     }
                 }
@@ -25,23 +25,30 @@ impl HouseholdApp {
             
             if ui.button(RichText::new("删除户籍").size(14.0)).clicked() {
                 if let Some(selected) = self.ui_state.selected_household {
-                    self.remove_household(selected);
+                    if let Ok(Some(household)) = self.get_household(selected) {
+                        if let Err(e) = self.remove_household(&household.id) {
+                            eprintln!("Failed to remove household: {}", e);
+                        }
+                    }
                 }
             }
             
             ui.separator();
             
             ui.label("搜索:");
-            if ui.text_edit_singleline(&mut self.ui_state.search_query).changed() {
-                self.update_filtered_households();
+            if ui.add(egui::TextEdit::singleline(&mut self.ui_state.search_query).id_source("search_box")).changed() {
+                if let Err(e) = self.update_filtered_households() {
+                    eprintln!("Failed to update filtered households: {}", e);
+                }
             }
             
             ui.separator();
             
             // 显示统计信息
-            let stats = self.household_manager.get_statistics();
-            ui.label(format!("总户数: {}", stats.total_households));
-            ui.label(format!("总人数: {}", stats.total_members));
+            if let Ok(stats) = self.household_manager.get_statistics() {
+                ui.label(format!("总户数: {}", stats.total_households));
+                ui.label(format!("总人数: {}", stats.total_members));
+            }
         });
     }
 
@@ -51,20 +58,22 @@ impl HouseholdApp {
             ui.separator();
             
             egui::ScrollArea::vertical().show(ui, |ui| {
-                for &index in &self.ui_state.filtered_households {
-                    if let Some(household) = self.get_household(index) {
-                        let is_selected = self.ui_state.selected_household == Some(index);
-                        
-                        let response = ui.selectable_label(
-                            is_selected,
-                            format!("{} - {}", household.head_name, household.household_type)
-                        );
-                        
-                        if response.clicked() {
-                            self.ui_state.selected_household = Some(index);
+                if let Ok(households) = self.get_households() {
+                    for (i, household) in households.iter().enumerate() {
+                        if self.ui_state.filtered_households.contains(&i) {
+                            let is_selected = self.ui_state.selected_household == Some(i);
+                            
+                            let response = ui.selectable_label(
+                                is_selected,
+                                format!("{} - {}", household.head_name, household.household_type)
+                            );
+                            
+                            if response.clicked() {
+                                self.ui_state.selected_household = Some(i);
+                            }
+                            
+                            ui.separator();
                         }
-                        
-                        ui.separator();
                     }
                 }
             });
@@ -73,15 +82,15 @@ impl HouseholdApp {
 
     pub fn render_household_details_panel(&mut self, ui: &mut Ui) {
         if let Some(selected) = self.ui_state.selected_household {
-            if let Some(household) = self.get_household(selected) {
+            if let Ok(Some(household)) = self.get_household(selected) {
                 ui.vertical(|ui| {
                     ui.heading(RichText::new("户籍详细信息").size(18.0));
                     ui.separator();
                     
                     egui::ScrollArea::vertical().show(ui, |ui| {
-                        self.render_basic_info(ui, household);
+                        self.render_basic_info(ui, &household);
                         ui.add_space(10.0);
-                        self.render_members_info(ui, household);
+                        self.render_members_info(ui, &household);
                     });
                 });
             }

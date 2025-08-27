@@ -1,4 +1,4 @@
-use eframe::egui::{self, Color32, Rounding, Style, Visuals};
+use eframe::egui::{self, Color32, Style, Visuals};
 
 pub struct AppTheme;
 
@@ -12,9 +12,9 @@ impl AppTheme {
         style.visuals.panel_fill = Color32::from_rgb(40, 40, 40);
         style.visuals.extreme_bg_color = Color32::from_rgb(24, 24, 24);
         
-        // 圆角设置
-        style.visuals.window_rounding = Rounding::same(8.0);
-        style.visuals.menu_rounding = Rounding::same(6.0);
+        // 圆角设置 (在新版本的egui中，这些属性可能已经移除或改变)
+        // style.visuals.window_rounding = CornerRadius::same(8);
+        // style.visuals.menu_rounding = CornerRadius::same(6);
         
         ctx.set_style(style);
     }
@@ -27,9 +27,9 @@ impl AppTheme {
         style.visuals.window_fill = Color32::from_rgb(248, 248, 248);
         style.visuals.panel_fill = Color32::from_rgb(240, 240, 240);
         
-        // 圆角设置
-        style.visuals.window_rounding = Rounding::same(8.0);
-        style.visuals.menu_rounding = Rounding::same(6.0);
+        // 圆角设置 (在新版本的egui中，这些属性可能已经移除或改变)
+        // style.visuals.window_rounding = CornerRadius::same(8);
+        // style.visuals.menu_rounding = CornerRadius::same(6);
         
         ctx.set_style(style);
     }

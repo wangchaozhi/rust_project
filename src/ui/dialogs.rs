@@ -16,6 +16,7 @@ impl HouseholdApp {
 
     fn render_add_dialog(&mut self, ctx: &egui::Context) {
         egui::Window::new("新增户籍")
+            .id(egui::Id::new("add_household_dialog"))
             .collapsible(false)
             .resizable(true)
             .default_size([600.0, 500.0])
@@ -26,6 +27,7 @@ impl HouseholdApp {
 
     fn render_edit_dialog(&mut self, ctx: &egui::Context) {
         egui::Window::new("编辑户籍")
+            .id(egui::Id::new("edit_household_dialog"))
             .collapsible(false)
             .resizable(true)
             .default_size([600.0, 500.0])
@@ -60,17 +62,20 @@ impl HouseholdApp {
                 
                 ui.horizontal(|ui| {
                     ui.label("户主姓名:");
-                    ui.add(egui::TextEdit::singleline(&mut self.ui_state.edit_form.head_name).id_source("head_name"));
+                    ui.add(improved_text_edit_singleline(&mut self.ui_state.edit_form.head_name, "dialog_head_name")
+                        .desired_width(200.0));
                 });
                 
                 ui.horizontal(|ui| {
                     ui.label("身份证号:");
-                    ui.add(egui::TextEdit::singleline(&mut self.ui_state.edit_form.id_number).id_source("id_number"));
+                    ui.add(egui::TextEdit::singleline(&mut self.ui_state.edit_form.id_number)
+                        .id_source("dialog_id_number")
+                        .desired_width(200.0));
                 });
                 
                 ui.horizontal(|ui| {
                     ui.label("户口类型:");
-                    egui::ComboBox::from_id_source("household_type")
+                    egui::ComboBox::from_id_salt("dialog_household_type")
                         .selected_text(self.ui_state.edit_form.household_type.to_string())
                         .show_ui(ui, |ui| {
                             ui.selectable_value(&mut self.ui_state.edit_form.household_type, HouseholdType::Urban, "城镇户口");
@@ -80,12 +85,17 @@ impl HouseholdApp {
                 
                 ui.horizontal(|ui| {
                     ui.label("联系电话:");
-                    ui.add(egui::TextEdit::singleline(&mut self.ui_state.edit_form.phone).id_source("phone"));
+                    ui.add(egui::TextEdit::singleline(&mut self.ui_state.edit_form.phone)
+                        .id_source("dialog_phone")
+                        .desired_width(200.0));
                 });
                 
                 ui.horizontal(|ui| {
                     ui.label("家庭地址:");
-                    ui.add(egui::TextEdit::multiline(&mut self.ui_state.edit_form.address).id_source("address"));
+                    ui.add(egui::TextEdit::multiline(&mut self.ui_state.edit_form.address)
+                        .id_source("dialog_address")
+                        .desired_width(300.0)
+                        .desired_rows(3));
                 });
             });
         });
@@ -137,26 +147,44 @@ impl HouseholdApp {
     fn render_form_buttons(&mut self, ui: &mut Ui, is_add: bool) {
         ui.horizontal(|ui| {
             if ui.button("保存").clicked() {
+                println!("保存按钮被点击");
                 match self.ui_state.edit_form.validate() {
                     Ok(()) => {
+                        println!("表单验证通过");
                         if is_add {
+                            println!("执行新增操作");
                             if let Some(household) = self.ui_state.edit_form.to_household(None) {
-                                self.add_household(household);
-                                self.ui_state.show_add_dialog = false;
-                                self.ui_state.edit_form.clear();
+                                println!("成功创建Household对象");
+                                if let Err(e) = self.add_household(household) {
+                                    eprintln!("Failed to add household: {}", e);
+                                    self.ui_state.error_message = format!("添加失败: {}", e);
+                                    self.ui_state.show_error_dialog = true;
+                                } else {
+                                    println!("成功添加户籍");
+                                    self.ui_state.show_add_dialog = false;
+                                    self.ui_state.edit_form.clear();
+                                }
+                            } else {
+                                println!("无法创建Household对象");
+                                self.ui_state.error_message = "无法创建户籍对象".to_string();
+                                self.ui_state.show_error_dialog = true;
                             }
                         } else {
                             if let Some(selected) = self.ui_state.selected_household {
-                                if let Some(existing_household) = self.get_household(selected) {
+                                if let Ok(Some(existing_household)) = self.get_household(selected) {
                                     if let Some(updated_household) = self.ui_state.edit_form.to_household(Some(existing_household.id)) {
-                                        self.update_household(selected, updated_household);
-                                        self.ui_state.show_edit_dialog = false;
+                                        if let Err(e) = self.update_household(updated_household) {
+                                            eprintln!("Failed to update household: {}", e);
+                                        } else {
+                                            self.ui_state.show_edit_dialog = false;
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                     Err(error) => {
+                        println!("表单验证失败: {}", error);
                         // 显示错误对话框
                         self.ui_state.error_message = error;
                         self.ui_state.show_error_dialog = true;
@@ -182,10 +210,12 @@ fn render_member_form_inline(ui: &mut Ui, member: &mut MemberForm, index: usize)
     
     ui.horizontal(|ui| {
         ui.label("姓名:");
-        ui.add(egui::TextEdit::singleline(&mut member.name).id_source(format!("name_{}", index)));
+        ui.add(egui::TextEdit::singleline(&mut member.name)
+            .id_source(format!("dialog_member_name_{}", index))
+            .desired_width(120.0));
         
         ui.label("关系:");
-        egui::ComboBox::from_id_source(format!("relationship_{}", index))
+        egui::ComboBox::from_id_salt(format!("dialog_member_relationship_{}", index))
             .selected_text(member.relationship.to_string())
             .show_ui(ui, |ui| {
                 ui.selectable_value(&mut member.relationship, Relationship::Head, "户主");
@@ -198,10 +228,12 @@ fn render_member_form_inline(ui: &mut Ui, member: &mut MemberForm, index: usize)
     
     ui.horizontal(|ui| {
         ui.label("身份证号:");
-        ui.add(egui::TextEdit::singleline(&mut member.id_number).id_source(format!("id_number_{}", index)));
+        ui.add(egui::TextEdit::singleline(&mut member.id_number)
+            .id_source(format!("dialog_member_id_number_{}", index))
+            .desired_width(160.0));
         
         ui.label("性别:");
-        egui::ComboBox::from_id_source(format!("gender_{}", index))
+        egui::ComboBox::from_id_salt(format!("dialog_member_gender_{}", index))
             .selected_text(member.gender.to_string())
             .show_ui(ui, |ui| {
                 ui.selectable_value(&mut member.gender, Gender::Male, "男");
@@ -211,18 +243,18 @@ fn render_member_form_inline(ui: &mut Ui, member: &mut MemberForm, index: usize)
     
     ui.horizontal(|ui| {
         ui.label("出生年份:");
-        ui.add(egui::DragValue::new(&mut member.birth_year).clamp_range(1900..=2024));
+        ui.add(egui::DragValue::new(&mut member.birth_year).range(1900..=2024));
         
         ui.label("月:");
-        ui.add(egui::DragValue::new(&mut member.birth_month).clamp_range(1..=12));
+        ui.add(egui::DragValue::new(&mut member.birth_month).range(1..=12));
         
         ui.label("日:");
-        ui.add(egui::DragValue::new(&mut member.birth_day).clamp_range(1..=31));
+        ui.add(egui::DragValue::new(&mut member.birth_day).range(1..=31));
     });
     
     ui.horizontal(|ui| {
         ui.label("学历:");
-        egui::ComboBox::from_id_source(format!("education_{}", index))
+        egui::ComboBox::from_id_salt(format!("dialog_member_education_{}", index))
             .selected_text(member.education.to_string())
             .show_ui(ui, |ui| {
                 ui.selectable_value(&mut member.education, Education::Primary, "小学");
@@ -235,6 +267,16 @@ fn render_member_form_inline(ui: &mut Ui, member: &mut MemberForm, index: usize)
             });
         
         ui.label("职业:");
-        ui.add(egui::TextEdit::singleline(&mut member.occupation).id_source(format!("occupation_{}", index)));
+        ui.add(egui::TextEdit::singleline(&mut member.occupation)
+            .id_source(format!("dialog_member_occupation_{}", index))
+            .desired_width(120.0));
     });
+}
+
+// 辅助函数：创建改进的单行文本输入框
+fn improved_text_edit_singleline(text: &mut String, id: impl std::hash::Hash) -> egui::TextEdit {
+    egui::TextEdit::singleline(text)
+        .id(egui::Id::new(id))
+        .clip_text(false)
+        .cursor_at_end(false)
 }

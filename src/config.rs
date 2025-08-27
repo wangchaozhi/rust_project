@@ -27,7 +27,7 @@ pub fn setup_custom_fonts(ctx: &egui::Context) {
     let font_data = include_bytes!("../font/字魂柳叶楷书.ttf");
     fonts.font_data.insert(
         "custom_font".to_owned(),
-        FontData::from_static(font_data),
+        FontData::from_static(font_data).into(),
     );
     
     // 设置字体优先级
