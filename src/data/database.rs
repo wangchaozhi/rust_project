@@ -51,6 +51,13 @@ impl Database {
         Ok(())
     }
     
+    // 检查数据库是否为空
+    pub fn is_empty(&self) -> Result<bool> {
+        let mut stmt = self.conn.prepare("SELECT COUNT(*) FROM households")?;
+        let count: i64 = stmt.query_row([], |row| row.get(0))?;
+        Ok(count == 0)
+    }
+    
     // 户籍相关操作
     pub fn insert_household(&self, household: &Household) -> Result<()> {
         self.conn.execute(

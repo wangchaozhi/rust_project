@@ -147,25 +147,19 @@ impl HouseholdApp {
     fn render_form_buttons(&mut self, ui: &mut Ui, is_add: bool) {
         ui.horizontal(|ui| {
             if ui.button("保存").clicked() {
-                println!("保存按钮被点击");
                 match self.ui_state.edit_form.validate() {
                     Ok(()) => {
-                        println!("表单验证通过");
                         if is_add {
-                            println!("执行新增操作");
                             if let Some(household) = self.ui_state.edit_form.to_household(None) {
-                                println!("成功创建Household对象");
                                 if let Err(e) = self.add_household(household) {
                                     eprintln!("Failed to add household: {}", e);
                                     self.ui_state.error_message = format!("添加失败: {}", e);
                                     self.ui_state.show_error_dialog = true;
                                 } else {
-                                    println!("成功添加户籍");
                                     self.ui_state.show_add_dialog = false;
                                     self.ui_state.edit_form.clear();
                                 }
                             } else {
-                                println!("无法创建Household对象");
                                 self.ui_state.error_message = "无法创建户籍对象".to_string();
                                 self.ui_state.show_error_dialog = true;
                             }
@@ -184,7 +178,6 @@ impl HouseholdApp {
                         }
                     }
                     Err(error) => {
-                        println!("表单验证失败: {}", error);
                         // 显示错误对话框
                         self.ui_state.error_message = error;
                         self.ui_state.show_error_dialog = true;

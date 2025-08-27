@@ -13,6 +13,14 @@ chrono = { version = "0.4.41", features = ["serde"] }
 uuid = { version = "1.18.0", features = ["v4", "serde"] }
 rusqlite = { version = "0.37.0", features = ["bundled", "chrono", "uuid"] }
 
+[[bin]]
+name = "household_management"
+path = "src/main.rs"
+
 [features]
 default = ["persistence"]
 persistence = ["eframe/persistence", "egui/persistence"]
+
+# Windows specific configuration to hide console window
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winuser"] }

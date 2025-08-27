@@ -20,6 +20,10 @@ impl HouseholdManager {
         })
     }
     
+    pub fn is_empty(&self) -> Result<bool, Box<dyn std::error::Error>> {
+        Ok(self.database.is_empty()?)
+    }
+    
     pub fn add_sample_data(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let sample1 = Household {
             id: Uuid::new_v4(),
@@ -86,28 +90,21 @@ impl HouseholdManager {
     
     fn refresh_cache(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if self.cache_dirty {
-            println!("缓存脏标记为true，正在刷新缓存");
             match self.database.get_all_households() {
                 Ok(households) => {
-                    println!("从数据库获取到 {} 个户籍", households.len());
                     self.households_cache.clear();
                     for household in households {
-                        println!("添加户籍到缓存: {}", household.head_name);
                         self.households_cache.insert(household.id, household);
                     }
                     self.cache_dirty = false;
-                    println!("缓存刷新完成，现在有 {} 个户籍", self.households_cache.len());
                 }
-                Err(e) => {
-                    println!("从数据库获取户籍时出错: {}", e);
+                Err(_) => {
                     // 如果数据库为空或出错，清空缓存
                     self.households_cache.clear();
                     self.cache_dirty = false;
                     // 不返回错误，允许继续运行
                 }
             }
-        } else {
-            println!("缓存没有脏标记，跳过刷新");
         }
         Ok(())
     }
@@ -124,10 +121,8 @@ impl HouseholdManager {
     }
     
     pub fn add_household(&mut self, household: Household) -> Result<(), Box<dyn std::error::Error>> {
-        println!("正在添加户籍到数据库: {}", household.head_name);
         self.database.insert_household(&household)?;
         self.cache_dirty = true;
-        println!("户籍已添加到数据库，缓存标记为脏");
         Ok(())
     }
     
@@ -147,7 +142,6 @@ impl HouseholdManager {
         if query.is_empty() {
             self.refresh_cache()?;
             let count = self.households_cache.len();
-            println!("搜索查询为空，缓存中有 {} 个户籍", count);
             Ok((0..count).collect())
         } else {
             let households = self.database.search_households(query)?;

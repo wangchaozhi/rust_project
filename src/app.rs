@@ -27,17 +27,22 @@ impl HouseholdApp {
             ui_state: UiState::default(),
         };
         
-        // 添加示例数据
-        app.household_manager.add_sample_data()?;
+        // 只在数据库为空时添加示例数据
+        if app.household_manager.is_empty()? {
+            #[cfg(debug_assertions)]
+            println!("数据库为空，添加示例数据");
+            app.household_manager.add_sample_data()?;
+        } else {
+            #[cfg(debug_assertions)]
+            println!("数据库已有数据，跳过示例数据初始化");
+        }
         app.update_filtered_households()?;
         
         Ok(app)
     }
     
     pub fn update_filtered_households(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let filtered = self.household_manager.search(&self.ui_state.search_query)?;
-        println!("更新过滤列表，找到 {} 个匹配的户籍", filtered.len());
-        self.ui_state.filtered_households = filtered;
+        self.ui_state.filtered_households = self.household_manager.search(&self.ui_state.search_query)?;
         Ok(())
     }
     
