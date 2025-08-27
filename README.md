@@ -19,15 +19,28 @@
 - **chrono**: 日期时间处理
 - **uuid**: 唯一标识符生成
 
-## 📦 安装和运行
+## 📦 下载和安装
 
-### 前置要求
+### 预编译版本 (推荐)
 
+从 [Releases 页面](https://github.com/wangchaozhi/rust_project/releases) 下载适合你系统的版本：
+
+- **Windows**: `household_management-windows-x86_64.exe.zip`
+- **macOS**: `household_management-macos-universal.dmg` (支持Intel和Apple Silicon)
+- **Linux**: `household_management-linux-x86_64.AppImage` (便携版)
+
+### 从源码编译
+
+#### 前置要求
 - Rust 1.70+ 
 - Cargo
 
-### 运行步骤
+#### Linux 额外依赖
+```bash
+sudo apt-get install libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+```
 
+#### 编译步骤
 1. 克隆仓库
 ```bash
 git clone https://github.com/wangchaozhi/rust_project.git
@@ -36,7 +49,7 @@ cd rust_project
 
 2. 编译并运行
 ```bash
-cargo run
+cargo run --release
 ```
 
 ## 🏗️ 项目结构
@@ -101,6 +114,31 @@ cargo test
 ```bash
 cargo build --release
 ```
+
+## 🚀 自动化构建
+
+本项目使用 GitHub Actions 进行自动化构建和发布：
+
+### CI/CD 工作流
+- **CI**: 每次推送和PR时运行测试和构建检查
+- **Release**: 创建标签时自动构建所有平台的发布版本
+
+### 创建发布
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+GitHub Actions 会自动：
+- 构建 Linux AppImage
+- 构建 macOS 通用 DMG  
+- 构建 Windows 可执行文件
+- 创建 GitHub Release 并上传所有构建产物
+
+### 支持平台
+- **Linux**: x86_64 (AppImage 格式)
+- **Windows**: x86_64 (可执行文件 + 安装程序)
+- **macOS**: 通用二进制 (Intel + Apple Silicon)
 
 ## 📝 许可证
 
